@@ -1,0 +1,17 @@
+---
+inputs:
+  devenvbase:
+    url: github:damsoncloud/dcp.sdlc/v2.0.2?dir=devenvbase
+    flake: false
+  git-hooks:
+    url: github:cachix/git-hooks.nix
+    inputs:
+      nixpkgs:
+        follows: nixpkgs
+  nixpkgs:
+    url: github:cachix/devenv-nixpkgs/rolling
+  nixpkgs-python:
+    url: github:cachix/nixpkgs-python
+
+imports:
+  - devenvbase

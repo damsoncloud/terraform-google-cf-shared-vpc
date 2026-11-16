@@ -1,0 +1,24 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Part of the semantic version to increase
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: patch
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    permissions:
+      contents: write
+    uses: damsoncloud/dcp.sdlc/.github/workflows/github-release.yaml@v2.0.2
+    with:
+      bump: ${{ inputs.bump }}
