@@ -3,11 +3,11 @@
     "devenv": {
       "locked": {
         "dir": "src/modules",
-        "lastModified": 1794845331,
-        "narHash": "sha256-WA/mgPEsTUyVuzAFrZgYwe00RypPYN1QJsu9VaGGzuE=",
+        "lastModified": 1795442488,
+        "narHash": "sha256-xDpXv99LgmEmXw8AHVds2V11bF5u0g6F8ViHtfmK8sk=",
         "owner": "cachix",
         "repo": "devenv",
-        "rev": "1b047fcb390f9c8019d38d5178c64ea3f08340d4",
+        "rev": "9efde4a36d7d36806475c5582de12e248de6fdba",
         "type": "github"
       },
       "original": {
@@ -21,17 +21,17 @@
       "flake": false,
       "locked": {
         "dir": "devenvbase",
-        "lastModified": 1794843451,
-        "narHash": "sha256-2zeDmd4r1zLp9PosMWntfT8CBgl08IocknEQsAQzLuk=",
+        "lastModified": 1795004019,
+        "narHash": "sha256-VgUPpx3h87n0+/u+3XLawJy37f4C0Iuq8Ad6XvX+4OQ=",
         "owner": "damsoncloud",
         "repo": "dcp.sdlc",
-        "rev": "460162c1ed414bed96a1d2908af84cfcd6988524",
+        "rev": "47cc410acc253cc3c5fbc26ee0b9f318cce2c493",
         "type": "github"
       },
       "original": {
         "dir": "devenvbase",
         "owner": "damsoncloud",
-        "ref": "v2.0.2",
+        "ref": "v2.2.0",
         "repo": "dcp.sdlc",
         "type": "github"
       }
@@ -108,17 +108,49 @@
         "type": "github"
       }
     },
+    "nixpkgs-23_05": {
+      "locked": {
+        "lastModified": 1705033721,
+        "narHash": "sha256-K5eJHmL1/kev6WuqyqqbS1cdNnSidIZ3jeqJ7GbrYnQ=",
+        "owner": "nixos",
+        "repo": "nixpkgs",
+        "rev": "a1982c92d8980a0114372973cbdfe0a307f1bdea",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nixos",
+        "ref": "nixos-23.05-small",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "nixpkgs-24_05": {
+      "locked": {
+        "lastModified": 1735651292,
+        "narHash": "sha256-YLbzcBtYo1/FEzFsB3AnM16qFc6fWPMIoOuSoDwvg9g=",
+        "owner": "nixos",
+        "repo": "nixpkgs",
+        "rev": "0da3c44a9460a26d2025ec3ed2ec60a895eb1114",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nixos",
+        "ref": "nixos-24.05-small",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
     "nixpkgs-python": {
       "inputs": {
         "flake-compat": "flake-compat_2",
         "nixpkgs": "nixpkgs_2"
       },
       "locked": {
-        "lastModified": 1794432945,
-        "narHash": "sha256-RGD3+3Y48U7vdZBPBJdbflfd43/rlzU8mWZiMQ+zfyU=",
+        "lastModified": 1795162480,
+        "narHash": "sha256-Yuj3BarDzdSQa6KqfJQgWKBusEku+w/JCNb9VCPIvlU=",
         "owner": "cachix",
         "repo": "nixpkgs-python",
-        "rev": "c18c900a844bf56cda7291e98683ee526a79a9d2",
+        "rev": "bd2cb9c719f07bdd8405d2fe8274c965fe990113",
         "type": "github"
       },
       "original": {
@@ -144,6 +176,27 @@
         "type": "github"
       }
     },
+    "nixpkgs-terraform": {
+      "inputs": {
+        "nixpkgs": "nixpkgs_3",
+        "nixpkgs-23_05": "nixpkgs-23_05",
+        "nixpkgs-24_05": "nixpkgs-24_05",
+        "systems": "systems"
+      },
+      "locked": {
+        "lastModified": 1793820861,
+        "narHash": "sha256-fQM5L4IIsnsLSSeYm3OJJCsmcOuqtBjZ6p2DYUUoESY=",
+        "owner": "stackbuilders",
+        "repo": "nixpkgs-terraform",
+        "rev": "7341eef7aae9f427c2807e5eea8c6b96bb9887d7",
+        "type": "github"
+      },
+      "original": {
+        "owner": "stackbuilders",
+        "repo": "nixpkgs-terraform",
+        "type": "github"
+      }
+    },
     "nixpkgs_2": {
       "locked": {
         "lastModified": 1794165970,
@@ -160,13 +213,45 @@
         "type": "github"
       }
     },
+    "nixpkgs_3": {
+      "locked": {
+        "lastModified": 1781607440,
+        "narHash": "sha256-rxO+uc/KFbSJp+pgyXRuAX6QlG9hJdnt0BXpEQRXY+U=",
+        "owner": "nixos",
+        "repo": "nixpkgs",
+        "rev": "3e41b24abd260e8f71dbe2f5737d24122f972158",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nixos",
+        "ref": "nixpkgs-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "devenv": "devenv",
         "devenvbase": "devenvbase",
         "git-hooks": "git-hooks",
         "nixpkgs": "nixpkgs",
-        "nixpkgs-python": "nixpkgs-python"
+        "nixpkgs-python": "nixpkgs-python",
+        "nixpkgs-terraform": "nixpkgs-terraform"
+      }
+    },
+    "systems": {
+      "locked": {
+        "lastModified": 1681028828,
+        "narHash": "sha256-Vy1rq5AaRuLzOxct8nz4T6wlgyUR7zLU309k9mBC768=",
+        "owner": "nix-systems",
+        "repo": "default",
+        "rev": "da67096a3b9bf56a91d16901293e51ba5b49a27e",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nix-systems",
+        "repo": "default",
+        "type": "github"
       }
     }
   },

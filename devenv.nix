@@ -7,4 +7,5 @@
 }:
 
 {
+  dcp.terraformModule.enable = true;
 }

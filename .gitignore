@@ -280,3 +280,4 @@ terraform.rc
 
 # Trivy vulnerability scan reports
 *.sarif
+.terraform.lock.hcl
