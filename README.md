@@ -1,8 +1,11 @@
 # Damson Cloud GCP Cloud Foundations: Shared VPC
 
-Terraform module of the Damson Cloud GCP Cloud Foundations creating the Shared VPC of a Google Cloud organisation:
+Terraform module of the Damson Cloud GCP Cloud Foundations configuring the Shared VPC of a Google Cloud organisation in its host projects, created by
+[cf-organization](https://github.com/damsoncloud/terraform-google-cf-organization) in the common environment's folder: one for the environments in the VPC Service Controls
+perimeter and one for the others, as a host project and its service projects must be in the same perimeter. It manages:
 
-* the Shared VPC host project in the `common` folder, with one VPC network per environment,
+* the Shared VPC hosts, administered by the network administrators group,
+* one VPC network per environment,
 * primary and DR region subnets with Private Google Access and flow logs,
 * a Cloud Router with Cloud NAT per region, with logging,
 * deny-by-default firewall rules, with administrative access through IAP.
@@ -10,11 +13,12 @@ Terraform module of the Damson Cloud GCP Cloud Foundations creating the Shared V
 ## Usage
 
 ```hcl
-module "shared-vpc" {
+module "shared_vpc" {
   source  = "damsoncloud/cf-shared-vpc/google"
   version = "X.Y.Z"
 
-  # Inputs are documented once the module's first version is released.
+  domain        = "example.com"
+  host_projects = module.organization.shared_vpc_projects
 }
 ```
 
@@ -25,11 +29,17 @@ Pin an exact version. New versions are published as immutable GitHub releases wi
 <!-- markdownlint-disable MD013 -->
 ## Inputs
 
-No inputs.
+| Name | Description | Type | Default | Required |
+| ---- | ----------- | ---- | ------- | :------: |
+| domain | Domain of the organisation's groups. | `string` | n/a | yes |
+| host\_projects | The Shared VPC host projects by name, e.g. the `shared_vpc_projects` output of cf-organization: `project_id`. A host project and its service projects must be in the same VPC Service Controls perimeter, so the environments inside and outside the perimeter have separate host projects. | ```map(object({ project_id = string }))``` | n/a | yes |
+| network\_admins\_group\_name | Name of the group administering the networks, their firewall rules and external connectivity in the host projects, without the domain. | `string` | `"gcp-network-admins"` | no |
 
 ## Outputs
 
-No outputs.
+| Name | Description |
+| ---- | ----------- |
+| host\_project\_ids | IDs of the Shared VPC host projects, enabled as hosts, by name, for cf-gcp-project's service projects. |
 <!-- markdownlint-restore -->
 <!-- END_TF_DOCS -->
 
