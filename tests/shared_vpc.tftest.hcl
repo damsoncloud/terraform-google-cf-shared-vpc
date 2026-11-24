@@ -27,6 +27,7 @@ variables {
       subnets = {
         europe-west4 = { ip_cidr_range = "10.20.0.0/24" }
       }
+      iap_ports = []
     }
     production = {
       host_project = "prod"
@@ -34,6 +35,22 @@ variables {
       subnets = {
         europe-west4 = { ip_cidr_range = "10.30.0.0/24", secondary_ip_ranges = { pods = "10.130.0.0/20", services = "10.131.0.0/24" } }
         europe-west1 = { ip_cidr_range = "10.30.1.0/24" }
+      }
+      iap_ports = ["22"]
+      firewall_rules = {
+        allow-health-checks = {
+          description = "Load balancer health checks"
+          ranges      = ["35.191.0.0/16", "130.211.0.0/22"]
+          target_tags = ["web"]
+          protocols   = { tcp = ["443", "8080-8090"] }
+        }
+        deny-smtp-egress = {
+          direction = "EGRESS"
+          action    = "deny"
+          priority  = 900
+          ranges    = ["0.0.0.0/0"]
+          protocols = { tcp = ["25"] }
+        }
       }
     }
   }
@@ -369,6 +386,176 @@ run "invalid_nat_ip_addresses" {
         host_project = "nonprod"
         cloud_nat    = { ip_allocation = "MANUAL", ip_address_count = 0.5 }
         subnets      = { europe-west4 = { ip_cidr_range = "10.10.0.0/24" } }
+      }
+    }
+  }
+
+  expect_failures = [var.networks]
+}
+
+run "firewall_rules" {
+  assert {
+    condition = toset(keys(google_compute_firewall.rules)) == toset([
+      "development/allow-iap-ingress", "development/deny-all-ingress",
+      "certification/deny-all-ingress",
+      "production/allow-iap-ingress", "production/deny-all-ingress", "production/allow-health-checks", "production/deny-smtp-egress",
+    ])
+    error_message = "Each network must have the deny-all ingress rule, the IAP rule unless disabled, and its workload-specific rules."
+  }
+
+  assert {
+    condition = (
+      google_compute_firewall.rules["development/allow-iap-ingress"].name == "dev-allow-iap-ingress" &&
+      google_compute_firewall.rules["development/allow-iap-ingress"].direction == "INGRESS" &&
+      google_compute_firewall.rules["development/allow-iap-ingress"].source_ranges == toset(["35.235.240.0/20"]) &&
+      length(google_compute_firewall.rules["development/allow-iap-ingress"].allow) == 1 &&
+      one(google_compute_firewall.rules["development/allow-iap-ingress"].allow).protocol == "tcp" &&
+      one(google_compute_firewall.rules["development/allow-iap-ingress"].allow).ports == tolist(["22", "3389"]) &&
+      google_compute_firewall.rules["development/allow-iap-ingress"].target_tags == null &&
+      length(google_compute_firewall.rules["production/allow-iap-ingress"].allow) == 1 &&
+      one(google_compute_firewall.rules["production/allow-iap-ingress"].allow).protocol == "tcp" &&
+      one(google_compute_firewall.rules["production/allow-iap-ingress"].allow).ports == tolist(["22"])
+    )
+    error_message = "The IAP rule must allow the IAP ports from the IAP TCP forwarding range to all instances."
+  }
+
+  assert {
+    condition = (
+      google_compute_firewall.rules["certification/deny-all-ingress"].name == "cert-deny-all-ingress" &&
+      google_compute_firewall.rules["certification/deny-all-ingress"].priority == 65534 &&
+      google_compute_firewall.rules["certification/deny-all-ingress"].source_ranges == toset(["0.0.0.0/0"]) &&
+      length(google_compute_firewall.rules["certification/deny-all-ingress"].deny) == 1 &&
+      one(google_compute_firewall.rules["certification/deny-all-ingress"].deny).protocol == "all" &&
+      length(one(google_compute_firewall.rules["certification/deny-all-ingress"].deny).ports) == 0 &&
+      length(google_compute_firewall.rules["certification/deny-all-ingress"].allow) == 0 &&
+      google_compute_firewall.rules["certification/deny-all-ingress"].network == google_compute_network.environments["certification"].id &&
+      google_compute_firewall.rules["certification/deny-all-ingress"].project == "cmn-shared-vpcs-nonprod-c3d4"
+    )
+    error_message = "Each network must have an explicit deny-all ingress rule just above the implied one."
+  }
+
+  assert {
+    condition = (
+      google_compute_firewall.rules["production/allow-health-checks"].name == "prod-allow-health-checks" &&
+      google_compute_firewall.rules["production/allow-health-checks"].priority == 1000 &&
+      google_compute_firewall.rules["production/allow-health-checks"].source_ranges == toset(["35.191.0.0/16", "130.211.0.0/22"]) &&
+      google_compute_firewall.rules["production/allow-health-checks"].target_tags == toset(["web"]) &&
+      length(google_compute_firewall.rules["production/allow-health-checks"].allow) == 1 &&
+      one(google_compute_firewall.rules["production/allow-health-checks"].allow).protocol == "tcp" &&
+      one(google_compute_firewall.rules["production/allow-health-checks"].allow).ports == tolist(["443", "8080-8090"]) &&
+      google_compute_firewall.rules["production/deny-smtp-egress"].direction == "EGRESS" &&
+      google_compute_firewall.rules["production/deny-smtp-egress"].priority == 900 &&
+      google_compute_firewall.rules["production/deny-smtp-egress"].destination_ranges == toset(["0.0.0.0/0"]) &&
+      google_compute_firewall.rules["production/deny-smtp-egress"].source_ranges == null &&
+      length(google_compute_firewall.rules["production/deny-smtp-egress"].deny) == 1 &&
+      one(google_compute_firewall.rules["production/deny-smtp-egress"].deny).protocol == "tcp" &&
+      one(google_compute_firewall.rules["production/deny-smtp-egress"].deny).ports == tolist(["25"])
+    )
+    error_message = "The workload-specific rules must be created as configured."
+  }
+
+  assert {
+    condition     = alltrue([for rule in google_compute_firewall.rules : rule.log_config[0].metadata == "INCLUDE_ALL_METADATA"])
+    error_message = "Each firewall rule must be logged with all metadata."
+  }
+}
+
+run "custom_firewall_log_metadata" {
+  command = plan
+
+  variables {
+    firewall_log_metadata = "EXCLUDE_ALL_METADATA"
+  }
+
+  assert {
+    condition     = alltrue([for rule in google_compute_firewall.rules : rule.log_config[0].metadata == "EXCLUDE_ALL_METADATA"])
+    error_message = "The firewall log metadata must be configurable."
+  }
+}
+
+run "invalid_firewall_log_metadata" {
+  command = plan
+
+  variables {
+    firewall_log_metadata = "ALL"
+  }
+
+  expect_failures = [var.firewall_log_metadata]
+}
+
+run "unrestricted_ingress" {
+  command = plan
+
+  variables {
+    networks = {
+      development = {
+        host_project = "nonprod"
+        subnets      = { europe-west4 = { ip_cidr_range = "10.10.0.0/24" } }
+        firewall_rules = {
+          allow-https = { ranges = ["0.0.0.0/0"], protocols = { tcp = ["443"] } }
+        }
+      }
+    }
+  }
+
+  expect_failures = [var.networks]
+}
+
+run "ingress_without_source" {
+  command = plan
+
+  variables {
+    networks = {
+      development = {
+        host_project = "nonprod"
+        subnets      = { europe-west4 = { ip_cidr_range = "10.10.0.0/24" } }
+        firewall_rules = {
+          allow-https = { target_tags = ["web"], protocols = { tcp = ["443"] } }
+        }
+      }
+    }
+  }
+
+  expect_failures = [var.networks]
+}
+
+run "reserved_firewall_rule_name" {
+  command = plan
+
+  variables {
+    networks = {
+      development = {
+        host_project = "nonprod"
+        subnets      = { europe-west4 = { ip_cidr_range = "10.10.0.0/24" } }
+        firewall_rules = {
+          deny-all-ingress = { action = "deny", protocols = { all = [] } }
+        }
+      }
+    }
+  }
+
+  expect_failures = [var.networks]
+}
+
+run "invalid_firewall_rules" {
+  command = plan
+
+  variables {
+    networks = {
+      development = {
+        host_project = "nonprod"
+        subnets      = { europe-west4 = { ip_cidr_range = "10.10.0.0/24" } }
+        iap_ports    = ["ssh"]
+        firewall_rules = {
+          allow-egress = {
+            direction   = "OUTBOUND"
+            action      = "accept"
+            priority    = 70000
+            ranges      = ["10.0.0.0"]
+            source_tags = ["web"]
+            protocols   = {}
+          }
+        }
       }
     }
   }

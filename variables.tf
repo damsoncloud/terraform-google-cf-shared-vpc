@@ -3,6 +3,18 @@ variable "domain" {
   type        = string
 }
 
+variable "firewall_log_metadata" {
+  description = "Metadata of the firewall rules' logs: `INCLUDE_ALL_METADATA` or `EXCLUDE_ALL_METADATA`."
+  type        = string
+  default     = "INCLUDE_ALL_METADATA"
+  nullable    = false
+
+  validation {
+    condition     = contains(["INCLUDE_ALL_METADATA", "EXCLUDE_ALL_METADATA"], var.firewall_log_metadata)
+    error_message = "The firewall log metadata must be INCLUDE_ALL_METADATA or EXCLUDE_ALL_METADATA."
+  }
+}
+
 variable "flow_logs" {
   description = <<-EOT
   VPC Flow Logs configuration of all the subnets:
@@ -111,7 +123,18 @@ variable "networks" {
       `ip_address_count`, the number of IP addresses reserved per region with `MANUAL_ONLY`;
     `subnets` by region, e.g. the primary and DR regions:
       `ip_cidr_range`;
-      `secondary_ip_ranges`, CIDR ranges by range name, e.g. for GKE Pods and Services.
+      `secondary_ip_ranges`, CIDR ranges by range name, e.g. for GKE Pods and Services;
+    `iap_ports`, the TCP ports of administrative access through IAP TCP forwarding to all instances, none to disable it;
+    `firewall_rules`, the workload-specific rules, by name, prefixed with the environment's short name; the network's `deny-all-ingress` rule has priority 65534:
+      `description`;
+      `direction`, `INGRESS` or `EGRESS`;
+      `action`, `allow` or `deny`;
+      `priority`, 0 to 65535;
+      `ranges`, the source ranges of an ingress rule, or the destination ranges of an egress rule;
+      `source_tags` and `source_service_accounts`, of an ingress rule;
+      `target_tags` and `target_service_accounts`, all instances when both are empty;
+      `protocols`, the ports by protocol, e.g. `tcp`, `udp`, `icmp` or `all`, all ports when empty.
+  The ingress rules allowing traffic must have a source other than `0.0.0.0/0`.
   EOT
   type = map(object({
     host_project = string
@@ -125,6 +148,19 @@ variable "networks" {
       ip_cidr_range       = string
       secondary_ip_ranges = optional(map(string), {})
     }))
+    iap_ports = optional(list(string), ["22", "3389"])
+    firewall_rules = optional(map(object({
+      description             = optional(string)
+      direction               = optional(string, "INGRESS")
+      action                  = optional(string, "allow")
+      priority                = optional(number, 1000)
+      ranges                  = optional(list(string), [])
+      source_tags             = optional(list(string), [])
+      source_service_accounts = optional(list(string), [])
+      target_tags             = optional(list(string), [])
+      target_service_accounts = optional(list(string), [])
+      protocols               = map(list(string))
+    })), {})
   }))
   nullable = false
 
@@ -175,5 +211,50 @@ variable "networks" {
       for subnet in values(network.subnets) : [for name in keys(subnet.secondary_ip_ranges) : can(regex("^[a-z]([-a-z0-9]{0,61}[a-z0-9])?$", name))]
     ]]))
     error_message = "Each secondary range name must be 1-63 lowercase letters, digits or hyphens, starting with a letter and not ending with a hyphen."
+  }
+
+  validation {
+    condition = alltrue(flatten([for network in values(var.networks) : [
+      for name in keys(network.firewall_rules) : can(regex("^[a-z]([-a-z0-9]{0,33}[a-z0-9])?$", name)) && !contains(["allow-iap-ingress", "deny-all-ingress"], name)
+    ]]))
+    error_message = "Each firewall rule name must be 1-35 lowercase letters, digits or hyphens, starting with a letter and not ending with a hyphen, and not allow-iap-ingress or deny-all-ingress."
+  }
+
+  validation {
+    condition = alltrue(flatten([for network in values(var.networks) : [
+      for rule in values(network.firewall_rules) : (
+        contains(["INGRESS", "EGRESS"], rule.direction) && contains(["allow", "deny"], rule.action) &&
+        rule.priority >= 0 && rule.priority <= 65535 && floor(rule.priority) == rule.priority && length(rule.protocols) > 0
+      )
+    ]]))
+    error_message = "Each firewall rule must have the direction INGRESS or EGRESS, the action allow or deny, a whole priority from 0 to 65535, and at least one protocol."
+  }
+
+  validation {
+    condition = alltrue(flatten([for network in values(var.networks) : [
+      for rule in values(network.firewall_rules) : rule.direction == "INGRESS" || length(concat(rule.source_tags, rule.source_service_accounts)) == 0
+    ]]))
+    error_message = "Only ingress firewall rules can have source tags or service accounts."
+  }
+
+  validation {
+    condition = alltrue(flatten([for network in values(var.networks) : [
+      for rule in values(network.firewall_rules) : rule.direction == "EGRESS" || rule.action == "deny" || (
+        length(concat(rule.ranges, rule.source_tags, rule.source_service_accounts)) > 0 && !contains(rule.ranges, "0.0.0.0/0")
+      )
+    ]]))
+    error_message = "Each ingress firewall rule allowing traffic must have a source other than 0.0.0.0/0; without any source, it would apply to 0.0.0.0/0."
+  }
+
+  validation {
+    condition = alltrue(flatten([for network in values(var.networks) : [
+      for rule in values(network.firewall_rules) : [for cidr in rule.ranges : can(cidrnetmask(cidr))]
+    ]]))
+    error_message = "Each firewall rule's ranges must be IPv4 CIDR ranges."
+  }
+
+  validation {
+    condition     = alltrue(flatten([for network in values(var.networks) : [for port in network.iap_ports : can(regex("^[0-9]+(-[0-9]+)?$", port))]]))
+    error_message = "Each IAP port must be a port number or a range, e.g. 22 or 8000-8100."
   }
 }
