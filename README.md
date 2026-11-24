@@ -45,6 +45,10 @@ module "shared_vpc" {
 The resources are named after the environments' short names, e.g. `dev-vpc`, `dev-europe-west4-subnet`, `dev-internet-route`, `dev-europe-west4-router`,
 `dev-europe-west4-nat`, `dev-europe-west4-nat-ip-1`, `dev-allow-iap-ingress` and `dev-deny-all-ingress`.
 
+See [`examples/basic`](examples/basic) for the module applied with cf-hierarchy, cf-bootstrap and cf-organization, and [`examples/complete`](examples/complete) for the
+host project in the perimeter, the organisation policy restricting Shared VPC hosts to the common environment's folder, reserved Cloud NAT IP addresses, secondary ranges and
+workload-specific firewall rules.
+
 Pin an exact version. New versions are published as immutable GitHub releases with `vX.Y.Z` tags, following [semantic versioning](https://semver.org/).
 
 <!-- BEGIN_TF_DOCS -->
