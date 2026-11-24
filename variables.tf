@@ -34,6 +34,34 @@ variable "flow_logs" {
   }
 }
 
+variable "cloud_nat" {
+  description = <<-EOT
+  Configuration of all the Cloud NAT gateways, which translate all the primary and secondary ranges of their region's subnets:
+    `log_filter`, the logged connections: `ALL`, `TRANSLATIONS_ONLY` or `ERRORS_ONLY`;
+    `min_ports_per_vm`, Google's default when null;
+    `enable_dynamic_port_allocation`, between `min_ports_per_vm` and `max_ports_per_vm`;
+    `max_ports_per_vm`, with dynamic port allocation only, Google's default when null.
+  EOT
+  type = object({
+    log_filter                     = optional(string, "ALL")
+    min_ports_per_vm               = optional(number)
+    enable_dynamic_port_allocation = optional(bool, false)
+    max_ports_per_vm               = optional(number)
+  })
+  default  = {}
+  nullable = false
+
+  validation {
+    condition     = contains(["ALL", "TRANSLATIONS_ONLY", "ERRORS_ONLY"], var.cloud_nat.log_filter)
+    error_message = "The log filter must be ALL, TRANSLATIONS_ONLY or ERRORS_ONLY."
+  }
+
+  validation {
+    condition     = var.cloud_nat.max_ports_per_vm == null || var.cloud_nat.enable_dynamic_port_allocation
+    error_message = "The maximum ports per VM requires dynamic port allocation."
+  }
+}
+
 variable "folders" {
   description = <<-EOT
   The folders by folder name, e.g. the `folders` output of cf-hierarchy:
@@ -66,9 +94,7 @@ variable "host_projects" {
 }
 
 variable "network_admins_group_name" {
-  description = <<-EOT
-  Name of the group administering the networks, their firewall rules and external connectivity in the host projects, without the domain.
-  EOT
+  description = "Name of the group administering the networks, their firewall rules and external connectivity in the host projects, without the domain."
   type        = string
   default     = "gcp-network-admins"
   nullable    = false
@@ -79,6 +105,10 @@ variable "networks" {
   The VPC networks by environment name, one of the `folders` with a short name:
     `host_project`, the name of its host project in `host_projects`, inside the perimeter for the environments in it;
     `routing_mode`, `GLOBAL` or `REGIONAL`;
+    `cloud_nat`, the Cloud Router with a Cloud NAT gateway in each region of the network:
+      `enabled`;
+      `ip_allocation`, `AUTO_ONLY` for IP addresses allocated by Google, or `MANUAL_ONLY` for IP addresses reserved by the module, e.g. for allowlisting by third parties;
+      `ip_address_count`, the number of IP addresses reserved per region with `MANUAL_ONLY`;
     `subnets` by region, e.g. the primary and DR regions:
       `ip_cidr_range`;
       `secondary_ip_ranges`, CIDR ranges by range name, e.g. for GKE Pods and Services.
@@ -86,6 +116,11 @@ variable "networks" {
   type = map(object({
     host_project = string
     routing_mode = optional(string, "GLOBAL")
+    cloud_nat = optional(object({
+      enabled          = optional(bool, true)
+      ip_allocation    = optional(string, "AUTO_ONLY")
+      ip_address_count = optional(number, 1)
+    }), {})
     subnets = map(object({
       ip_cidr_range       = string
       secondary_ip_ranges = optional(map(string), {})
@@ -106,6 +141,16 @@ variable "networks" {
   validation {
     condition     = alltrue([for network in values(var.networks) : contains(["GLOBAL", "REGIONAL"], network.routing_mode)])
     error_message = "The routing mode must be GLOBAL or REGIONAL."
+  }
+
+  validation {
+    condition     = alltrue([for network in values(var.networks) : contains(["AUTO_ONLY", "MANUAL_ONLY"], network.cloud_nat.ip_allocation)])
+    error_message = "The Cloud NAT IP allocation must be AUTO_ONLY or MANUAL_ONLY."
+  }
+
+  validation {
+    condition     = alltrue([for network in values(var.networks) : network.cloud_nat.ip_address_count >= 1 && floor(network.cloud_nat.ip_address_count) == network.cloud_nat.ip_address_count])
+    error_message = "The Cloud NAT IP address count must be a whole number of at least 1."
   }
 
   validation {

@@ -23,6 +23,7 @@ variables {
     }
     certification = {
       host_project = "nonprod"
+      cloud_nat    = { enabled = false }
       subnets = {
         europe-west4 = { ip_cidr_range = "10.20.0.0/24" }
       }
@@ -232,6 +233,143 @@ run "invalid_networks" {
         }
       }
       production = { host_project = "prod", subnets = {} }
+    }
+  }
+
+  expect_failures = [var.networks]
+}
+
+run "cloud_nat" {
+  assert {
+    condition = (
+      toset(keys(google_compute_router.nat)) == toset(["development/europe-west4", "development/europe-west1", "production/europe-west4", "production/europe-west1"]) &&
+      google_compute_router.nat["development/europe-west1"].name == "dev-europe-west1-router" &&
+      google_compute_router.nat["development/europe-west1"].region == "europe-west1" &&
+      google_compute_router.nat["development/europe-west1"].network == google_compute_network.environments["development"].id &&
+      google_compute_router.nat["production/europe-west4"].project == "cmn-shared-vpcs-prod-c3d4"
+    )
+    error_message = "Each region of a network with Cloud NAT must have a Cloud Router, and the networks without it none."
+  }
+
+  assert {
+    condition = (
+      google_compute_router_nat.nat["production/europe-west1"].name == "prod-europe-west1-nat" &&
+      google_compute_router_nat.nat["production/europe-west1"].router == "prod-europe-west1-router" &&
+      google_compute_router_nat.nat["production/europe-west1"].region == "europe-west1" &&
+      google_compute_router_nat.nat["production/europe-west1"].project == "cmn-shared-vpcs-prod-c3d4" &&
+      alltrue([for nat in google_compute_router_nat.nat : (
+        nat.nat_ip_allocate_option == "AUTO_ONLY" &&
+        length(nat.nat_ips) == 0 &&
+        nat.source_subnetwork_ip_ranges_to_nat == "ALL_SUBNETWORKS_ALL_IP_RANGES" &&
+        !nat.enable_dynamic_port_allocation &&
+        nat.log_config[0].enable &&
+        nat.log_config[0].filter == "ALL"
+      )])
+    )
+    error_message = "Each Cloud Router must have a Cloud NAT gateway translating all ranges, logging all connections."
+  }
+
+  assert {
+    condition = (
+      output.networks["development"].routers["europe-west4"].name == "dev-europe-west4-router" &&
+      output.networks["development"].routers["europe-west4"].nat_ip_addresses == [] &&
+      output.networks["certification"].routers == {} &&
+      length(google_compute_address.nat) == 0
+    )
+    error_message = "The routers must be returned by network and region."
+  }
+}
+
+run "custom_cloud_nat" {
+  command = plan
+
+  variables {
+    cloud_nat = {
+      log_filter                     = "ERRORS_ONLY"
+      min_ports_per_vm               = 128
+      enable_dynamic_port_allocation = true
+      max_ports_per_vm               = 4096
+    }
+  }
+
+  assert {
+    condition = alltrue([for nat in google_compute_router_nat.nat : (
+      nat.log_config[0].filter == "ERRORS_ONLY" &&
+      nat.min_ports_per_vm == 128 &&
+      nat.enable_dynamic_port_allocation &&
+      nat.max_ports_per_vm == 4096
+    )])
+    error_message = "The Cloud NAT gateways must be configurable."
+  }
+}
+
+run "invalid_cloud_nat" {
+  command = plan
+
+  variables {
+    cloud_nat = {
+      log_filter       = "NONE"
+      max_ports_per_vm = 4096
+    }
+  }
+
+  expect_failures = [var.cloud_nat]
+}
+
+run "manual_nat_ip_addresses" {
+  variables {
+    networks = {
+      development = {
+        host_project = "nonprod"
+        subnets      = { europe-west4 = { ip_cidr_range = "10.10.0.0/24" } }
+      }
+      production = {
+        host_project = "prod"
+        cloud_nat    = { ip_allocation = "MANUAL_ONLY", ip_address_count = 2 }
+        subnets = {
+          europe-west4 = { ip_cidr_range = "10.30.0.0/24" }
+          europe-west1 = { ip_cidr_range = "10.30.1.0/24" }
+        }
+      }
+    }
+  }
+
+  assert {
+    condition = (
+      toset(keys(google_compute_address.nat)) == toset([
+        "production/europe-west4/1", "production/europe-west4/2", "production/europe-west1/1", "production/europe-west1/2"
+      ]) &&
+      google_compute_address.nat["production/europe-west1/2"].name == "prod-europe-west1-nat-ip-2" &&
+      google_compute_address.nat["production/europe-west1/2"].region == "europe-west1" &&
+      google_compute_address.nat["production/europe-west1/2"].project == "cmn-shared-vpcs-prod-c3d4" &&
+      google_compute_address.nat["production/europe-west1/2"].address_type == "EXTERNAL"
+    )
+    error_message = "MANUAL_ONLY must reserve the given number of IP addresses per region."
+  }
+
+  assert {
+    condition = (
+      google_compute_router_nat.nat["production/europe-west1"].nat_ip_allocate_option == "MANUAL_ONLY" &&
+      toset(google_compute_router_nat.nat["production/europe-west1"].nat_ips) == toset([
+        google_compute_address.nat["production/europe-west1/1"].self_link, google_compute_address.nat["production/europe-west1/2"].self_link
+      ]) &&
+      google_compute_router_nat.nat["development/europe-west4"].nat_ip_allocate_option == "AUTO_ONLY" &&
+      length(output.networks["production"].routers["europe-west4"].nat_ip_addresses) == 2
+    )
+    error_message = "Each Cloud NAT gateway with MANUAL_ONLY must use the IP addresses reserved in its region only."
+  }
+}
+
+run "invalid_nat_ip_addresses" {
+  command = plan
+
+  variables {
+    networks = {
+      development = {
+        host_project = "nonprod"
+        cloud_nat    = { ip_allocation = "MANUAL", ip_address_count = 0.5 }
+        subnets      = { europe-west4 = { ip_cidr_range = "10.10.0.0/24" } }
+      }
     }
   }
 

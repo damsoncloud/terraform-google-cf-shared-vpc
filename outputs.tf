@@ -10,7 +10,10 @@ output "networks" {
     `project_id` of the host project;
     `subnets` by region:
       `id`, `name`, `self_link`, `ip_cidr_range`;
-      `secondary_ip_ranges`, CIDR ranges by range name.
+      `secondary_ip_ranges`, CIDR ranges by range name;
+    `routers` of the Cloud NAT gateways by region, e.g. for hybrid connectivity:
+      `id`, `name`;
+      `nat_ip_addresses`, the IP addresses reserved with `MANUAL_ONLY`, empty with `AUTO_ONLY`.
   EOT
   value = { for environment, network in google_compute_network.environments : environment => {
     id         = network.id
@@ -24,5 +27,10 @@ output "networks" {
       ip_cidr_range       = subnet.ip_cidr_range
       secondary_ip_ranges = { for range in subnet.secondary_ip_range : range.range_name => range.ip_cidr_range }
     } if local.subnets[key].environment == environment }
+    routers = { for key, router in google_compute_router.nat : local.nat_regions[key].region => {
+      id               = router.id
+      name             = router.name
+      nat_ip_addresses = [for address_key, address in google_compute_address.nat : address.address if local.nat_ip_addresses[address_key].router_key == key]
+    } if local.nat_regions[key].environment == environment }
   } }
 }
