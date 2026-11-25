@@ -19,6 +19,6 @@ jobs:
   release:
     permissions:
       contents: write
-    uses: damsoncloud/dcp.sdlc/.github/workflows/github-release.yaml@v2.2.0
+    uses: damsoncloud/dcp.sdlc/.github/workflows/github-release.yaml@v2.3.0
     with:
       bump: ${{ inputs.bump }}

@@ -3,11 +3,11 @@
     "devenv": {
       "locked": {
         "dir": "src/modules",
-        "lastModified": 1795442488,
-        "narHash": "sha256-xDpXv99LgmEmXw8AHVds2V11bF5u0g6F8ViHtfmK8sk=",
+        "lastModified": 1795626624,
+        "narHash": "sha256-870gkyHTOoRjcmyyW7ieS+OD/HClNuQrQin7QY5KGC4=",
         "owner": "cachix",
         "repo": "devenv",
-        "rev": "9efde4a36d7d36806475c5582de12e248de6fdba",
+        "rev": "2dee64c2fafd0cc0dc2f1bd9c0535a286202299c",
         "type": "github"
       },
       "original": {
@@ -21,17 +21,17 @@
       "flake": false,
       "locked": {
         "dir": "devenvbase",
-        "lastModified": 1795004019,
-        "narHash": "sha256-VgUPpx3h87n0+/u+3XLawJy37f4C0Iuq8Ad6XvX+4OQ=",
+        "lastModified": 1795615981,
+        "narHash": "sha256-iC/zmhOhuTEe1GpYJI2I/YaES3HKJ8eYgvhAPRv4Pcg=",
         "owner": "damsoncloud",
         "repo": "dcp.sdlc",
-        "rev": "47cc410acc253cc3c5fbc26ee0b9f318cce2c493",
+        "rev": "92e60ece7370e303b7707ca80edb0181b3a4ebac",
         "type": "github"
       },
       "original": {
         "dir": "devenvbase",
         "owner": "damsoncloud",
-        "ref": "v2.2.0",
+        "ref": "v2.3.0",
         "repo": "dcp.sdlc",
         "type": "github"
       }
@@ -76,11 +76,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1793686154,
-        "narHash": "sha256-Zb/0L3soxrkfcrywpfp0J++0WFLB3tzh0Xtx9up+VNc=",
+        "lastModified": 1795608474,
+        "narHash": "sha256-CwC7f1DripMBQjB7BozobprSYiA8Cn9rz8vsBthWJwk=",
         "owner": "cachix",
         "repo": "git-hooks.nix",
-        "rev": "204b6977e00caac19e2313015a598543ca7be150",
+        "rev": "5c6bf7c418b4abf003e6d00d231e87f5e6ad5230",
         "type": "github"
       },
       "original": {
